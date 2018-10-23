@@ -1,0 +1,19 @@
+#######################################
+# Syntax Coloring Map BPI-BIT LEDFlow
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+FillArea	KEYWORD1
+FillNext	KEYWORD1
+FillView	KEYWORD1
+BitShowName	KEYWORD1
+BitLedOpen	KEYWORD1
+BitLedExit	KEYWORD1
+BitRunView	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
