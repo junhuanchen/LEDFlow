@@ -66,13 +66,17 @@ void IRAM_ATTR esp_neopixel_write(uint8_t pin, uint8_t *pixels, uint32_t numByte
 #define LedPower 2
 #define LedCtrl  4
 
-#define FillArea(Led, Size, View, Color) for(uint32_t x = 0, t = View; x < Size; x++) memset(&Led[x * 3], 0, 3), Led[x * 3 + Color[x / 5]] = (t & 1) * 5, t >>= 1
+#define BitRed 0
+#define BitGreen 1
+#define BitBlue 2
 
-#define FillNext(Next, View) View <<= 5, View |= Next
+#define BitFillArea(Led, Size, View, Color) for(uint32_t x = 0, t = View; x < Size; x++) memset(&Led[x * 3], 0, 3), Led[x * 3 + Color[x / 5]] = (t & 1) * 5, t >>= 1
 
-#define FillView(Led, Pos, View) memcpy(Led + Pos*5, View, 5)
+#define BitFillNext(Next, View) View <<= 5, View |= Next
 
-const uint8_t ViewLib[][5] = {
+#define BitFillView(Led, Pos, View) memcpy(Led + Pos*5, View, 5)
+
+const uint8_t WordLib[][5] = {
     {0x00, 0x1F, 0x11, 0x1F, 0x00},
     {0x00, 0x12, 0x1F, 0x10, 0x00},
     {0x00, 0x1D, 0x15, 0x17, 0x00},
@@ -92,28 +96,54 @@ const uint8_t ViewLib[][5] = {
     {0x00, 0x1F, 0x05, 0x05, 0x00},
 };
 
-inline void BitShowName(uint8_t buf[], uint8_t len)
+inline void BitShow(uint8_t word[], uint8_t Color[5] = {0})
 {
-    uint8_t buffer[25 * 3] = { };
+    uint8_t tmp[25 * 3] = { };
     uint32_t View = 0;
-    uint8_t Color[5] = {}, Temp = 0;
+    
+    for(int i = 0; i < 5; i++)
+    {
+        BitFillNext(word[i], View);
+
+        BitFillArea(tmp, 25, View, Color);
+    }
+    esp_neopixel_write(LedCtrl, tmp, sizeof(tmp), 1);
+}
+
+inline void __BitShow(uint8_t buf[], uint8_t len)
+{
+    uint8_t tmp[25 * 3] = { };
+    uint32_t View = 0;
+    uint8_t Color[5] = {0}, Temp = 0;
 
     for(int i = 0; i < len; i++)
     {
-        FillArea(buffer, 25, View, Color);
-
-        esp_neopixel_write(LedCtrl, buffer, sizeof(buffer), 1);
-
-        FillNext(buf[i], View);
-
         if(0 == (i % 5)) Temp = (Temp + 1) % 3;
 
         for(int i = 4; i > 0; i--) Color[i] = Color[i - 1];
 
         Color[0] = Temp;
         
+        BitFillNext(buf[i], View);
+
+        BitFillArea(tmp, 25, View, Color);
+
+        esp_neopixel_write(LedCtrl, tmp, sizeof(tmp), 1);
+
         vTaskDelay(150 / portTICK_PERIOD_MS);
     }
+}
+
+inline void BitScroll(char data[], uint datalen)
+{
+    uint8_t result[(datalen + 2) * 5] = { 0 };
+    for(int i = 1; i < datalen + 1; i++) BitFillView(result, i, WordLib[data[i - 1] - '0']);
+    __BitShow(result, sizeof(result));
+}
+
+inline void BitScroll(uint8_t data[], uint datalen)
+{
+    __BitShow(data, datalen);
 }
 
 inline void BitLedOpen()
@@ -121,19 +151,10 @@ inline void BitLedOpen()
     pinMode(2, OUTPUT);
     digitalWrite(2, HIGH);
     pinMode(4, OUTPUT);
+
 }
 
 inline void BitLedExit()
 {
     digitalWrite(2, LOW);
 }
-
-inline void BitRunView(char data[], uint datalen)
-{
-    BitLedOpen();
-    uint8_t result[(datalen + 2) * 5] = { 0 };
-    for(int i = 1; i < datalen + 1; i++) FillView(result, i, ViewLib[data[i - 1] - '0']);
-    BitShowName(result, sizeof(result));
-    BitLedExit();
-}
-
